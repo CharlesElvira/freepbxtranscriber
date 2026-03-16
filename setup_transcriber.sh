@@ -147,6 +147,19 @@ else
     echo "Whisper virtual environment already exists at $WHISPER_ENV."
 fi
 
+# === INSTALL RUST (required to build tiktoken, a Whisper dependency) ===
+echo "Checking for Rust/Cargo..."
+if ! command -v cargo &>/dev/null; then
+    echo "Rust not found. Installing via rustup..."
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path \
+        || { echo "Error: Failed to install Rust. Check $LOG_FILE for details."; exit 1; }
+    echo "Rust installed successfully."
+else
+    echo "Rust already installed: $(cargo --version)"
+fi
+# Ensure cargo is in PATH for this session
+export PATH="$HOME/.cargo/bin:$PATH"
+
 # === INSTALL WHISPER AND DEPENDENCIES ===
 echo "Activating virtual environment and installing Whisper and its dependencies..."
 source "$WHISPER_ENV/bin/activate" || { echo "Error: Failed to activate virtual environment. Check $LOG_FILE for details."; exit 1; }
