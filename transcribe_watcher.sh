@@ -13,7 +13,7 @@ LOG_FILE="/var/log/transcriber_watcher.log"
 MIN_FILE_SIZE_KB=5
 
 # Fallback email if the extension has no email in voicemail.conf
-FALLBACK_EMAIL="admin@yourdomain.com"
+FALLBACK_EMAIL="FALLBACK_EMAIL_PLACEHOLDER"
 
 # --- Logging setup ---
 mkdir -p "$(dirname "$LOG_FILE")"

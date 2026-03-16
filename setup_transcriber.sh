@@ -211,154 +211,29 @@ if ! [ -x "$WHISPER_BIN" ]; then
     exit 1
 fi
 
-# --- START: Generate transcribe_watcher.sh ---
-echo "Generating transcribe_watcher.sh script..."
-cat > "$SCRIPT_PATH" <<'WATCHER_EOF'
-#!/bin/bash
-# Monitors FreePBX voicemail directory for new messages,
-# transcribes them using OpenAI Whisper, and emails the transcription
-# with the original WAV file attached.
+# --- Deploy scripts from repo ---
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# --- Configuration ---
-VOICEMAIL_DIR="/var/spool/asterisk/voicemail/default"
-VOICEMAIL_CONF="/etc/asterisk/voicemail.conf"
-TRANSCRIPT_DIR="/var/transcripts"
-WHISPER_BIN="/opt/whisper_env/bin/whisper"
-PHP_MAILER="/usr/local/bin/send_voicemail_email.php"
-LOG_FILE="/var/log/transcriber_watcher.log"
-MIN_FILE_SIZE_KB=5
-
-# Fallback email if the extension has no email configured in voicemail.conf
-FALLBACK_EMAIL="FALLBACK_EMAIL_PLACEHOLDER"
-
-# --- Logging setup ---
-mkdir -p "$(dirname "$LOG_FILE")"
-touch "$LOG_FILE"
-exec > >(tee -a "$LOG_FILE") 2>&1
-echo "[$(date)] Voicemail transcriber watcher started."
-
-mkdir -p "$TRANSCRIPT_DIR"
-
-# --- Sanity checks ---
-if [ ! -x "$WHISPER_BIN" ]; then
-    echo "[$(date)] ERROR: Whisper not found at $WHISPER_BIN. Exiting."
+# Copy and configure transcribe_watcher.sh
+echo "Deploying transcribe_watcher.sh to $SCRIPT_PATH..."
+if [ ! -f "$REPO_DIR/transcribe_watcher.sh" ]; then
+    echo "Error: transcribe_watcher.sh not found in $REPO_DIR. Check $LOG_FILE for details."
     exit 1
 fi
-
-if [ ! -f "$PHP_MAILER" ]; then
-    echo "[$(date)] ERROR: PHP mailer not found at $PHP_MAILER. Exiting."
-    exit 1
-fi
-
-echo "[$(date)] Monitoring $VOICEMAIL_DIR for new voicemail WAV files..."
-
-inotifywait -m -r "$VOICEMAIL_DIR" -e close_write --format '%w%f' \
-  | grep --line-buffered '\.wav$' \
-  | while read -r WAV_FILE; do
-
-    echo "[$(date)] New WAV file detected: $WAV_FILE"
-
-    # Skip very small files (silence, corrupt recordings)
-    FILE_SIZE_KB=$(du -k "$WAV_FILE" 2>/dev/null | awk '{print $1}')
-    if [ -z "$FILE_SIZE_KB" ] || (( FILE_SIZE_KB < MIN_FILE_SIZE_KB )); then
-        echo "[$(date)] Skipping small file (${FILE_SIZE_KB}KB < ${MIN_FILE_SIZE_KB}KB): $WAV_FILE"
-        continue
-    fi
-
-    FILENAME=$(basename "$WAV_FILE" .wav)
-    TXT_FILE="${WAV_FILE%.wav}.txt"
-
-    # Wait briefly to ensure the companion .txt has been written by Asterisk
-    sleep 2
-
-    # --- Parse voicemail metadata ---
-    CALLER_ID="Unknown"
-    ORIG_DATE="Unknown"
-    DURATION="0"
-
-    if [ -f "$TXT_FILE" ]; then
-        CALLER_ID=$(grep '^callerid='    "$TXT_FILE" | cut -d'=' -f2-)
-        ORIG_DATE=$(grep '^origdate='    "$TXT_FILE" | cut -d'=' -f2-)
-        DURATION=$( grep '^duration='    "$TXT_FILE" | cut -d'=' -f2-)
-    else
-        echo "[$(date)] WARNING: No companion .txt found at $TXT_FILE"
-    fi
-
-    # Extract extension from path: .../default/207/Old/msg0001.wav -> 207
-    EXTENSION=$(echo "$WAV_FILE" | sed "s|${VOICEMAIL_DIR}/||" | cut -d'/' -f1)
-
-    # --- Look up recipient email from voicemail.conf ---
-    # Format:  207 => password,Full Name,email@example.com,...
-    TO_EMAIL=$(grep -m1 "^${EXTENSION}[[:space:]]*=>" "$VOICEMAIL_CONF" 2>/dev/null \
-               | cut -d',' -f3 \
-               | tr -d '[:space:]')
-
-    if [ -z "$TO_EMAIL" ]; then
-        echo "[$(date)] No email for ext $EXTENSION in voicemail.conf. Using fallback: $FALLBACK_EMAIL"
-        TO_EMAIL="$FALLBACK_EMAIL"
-    fi
-
-    echo "[$(date)] Transcribing for ext $EXTENSION (to: $TO_EMAIL) caller: $CALLER_ID"
-
-    # --- Run Whisper transcription ---
-    TEMP_WHISPER_LOG="/tmp/whisper_${FILENAME}.log"
-    TRANSCRIPT_TXT="$TRANSCRIPT_DIR/${FILENAME}.txt"
-
-    if "$WHISPER_BIN" "$WAV_FILE" \
-        --model base \
-        --language en \
-        --output_dir "$TRANSCRIPT_DIR" \
-        --output_format txt \
-        --verbose False > "$TEMP_WHISPER_LOG" 2>&1; then
-
-        if [ -f "$TRANSCRIPT_TXT" ]; then
-            echo "[$(date)] Transcription succeeded: $TRANSCRIPT_TXT"
-        else
-            echo "[$(date)] WARNING: Whisper ran but transcript not found at $TRANSCRIPT_TXT"
-            echo "Transcription file not produced by Whisper." > "$TRANSCRIPT_TXT"
-        fi
-    else
-        echo "[$(date)] ERROR: Whisper failed for $WAV_FILE. See $TEMP_WHISPER_LOG"
-        echo "Transcription failed. Please check server logs." > "$TRANSCRIPT_TXT"
-    fi
-
-    cat "$TEMP_WHISPER_LOG" >> "$LOG_FILE" 2>/dev/null
-    rm -f "$TEMP_WHISPER_LOG"
-
-    # --- Send email via PHP mailer ---
-    php "$PHP_MAILER" \
-        --to="$TO_EMAIL" \
-        --extension="$EXTENSION" \
-        --callerid="$CALLER_ID" \
-        --date="$ORIG_DATE" \
-        --duration="$DURATION" \
-        --wav="$WAV_FILE" \
-        --transcript-file="$TRANSCRIPT_TXT" \
-    && echo "[$(date)] Email sent to $TO_EMAIL for ext $EXTENSION" \
-    || echo "[$(date)] ERROR: PHP mailer failed for $WAV_FILE"
-
-done
-WATCHER_EOF
-
-# Inject the configured fallback email address
+cp "$REPO_DIR/transcribe_watcher.sh" "$SCRIPT_PATH" || { echo "Error: Failed to copy transcribe_watcher.sh. Check $LOG_FILE for details."; exit 1; }
 sed -i "s/FALLBACK_EMAIL_PLACEHOLDER/${FALLBACK_EMAIL}/" "$SCRIPT_PATH"
+chmod +x "$SCRIPT_PATH"
+echo "transcribe_watcher.sh deployed to $SCRIPT_PATH."
 
-chmod +x "$SCRIPT_PATH" || { echo "Error: Failed to make watcher script executable. Check $LOG_FILE for details."; exit 1; }
-echo "transcribe_watcher.sh generated at $SCRIPT_PATH."
-# --- END: Generate transcribe_watcher.sh ---
-
-# --- Deploy PHP mailer ---
-echo "Deploying PHP mailer to $PHP_MAILER_PATH..."
-# Copy the PHP mailer from the same directory as this setup script
-SETUP_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -f "$SETUP_SCRIPT_DIR/send_voicemail_email.php" ]; then
-    cp "$SETUP_SCRIPT_DIR/send_voicemail_email.php" "$PHP_MAILER_PATH" || { echo "Error: Failed to copy PHP mailer. Check $LOG_FILE for details."; exit 1; }
-    chmod +x "$PHP_MAILER_PATH"
-    echo "PHP mailer deployed to $PHP_MAILER_PATH."
-else
-    echo "ERROR: send_voicemail_email.php not found in $SETUP_SCRIPT_DIR. Cannot deploy PHP mailer."
+# Copy send_voicemail_email.php
+echo "Deploying send_voicemail_email.php to $PHP_MAILER_PATH..."
+if [ ! -f "$REPO_DIR/send_voicemail_email.php" ]; then
+    echo "Error: send_voicemail_email.php not found in $REPO_DIR. Check $LOG_FILE for details."
     exit 1
 fi
+cp "$REPO_DIR/send_voicemail_email.php" "$PHP_MAILER_PATH" || { echo "Error: Failed to copy send_voicemail_email.php. Check $LOG_FILE for details."; exit 1; }
+chmod +x "$PHP_MAILER_PATH"
+echo "send_voicemail_email.php deployed to $PHP_MAILER_PATH."
 
 # Determine the certifi CA bundle path within the virtual environment
 # This path will be used to set SSL_CERT_FILE for the systemd service
