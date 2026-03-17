@@ -2,6 +2,13 @@
 # Monitors FreePBX voicemail directory for new messages,
 # transcribes them using OpenAI Whisper, and emails the transcription
 # with the original WAV file attached.
+#
+# DEPLOY PATH (if not using setup_transcriber.sh):
+#   sudo cp transcribe_watcher.sh /var/transcripts/transcribe_watcher.sh
+#   sudo sed -i 's/\r//' /var/transcripts/transcribe_watcher.sh
+#   sudo sed -i 's/FALLBACK_EMAIL_PLACEHOLDER/your@email.com/' /var/transcripts/transcribe_watcher.sh
+#   sudo chmod +x /var/transcripts/transcribe_watcher.sh
+#   sudo systemctl restart transcriber
 
 # --- Configuration ---
 VOICEMAIL_DIR="/var/spool/asterisk/voicemail/default"

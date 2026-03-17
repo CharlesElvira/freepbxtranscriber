@@ -5,6 +5,12 @@
  * Sends a voicemail transcription email with the WAV file attached.
  * Inspired by https://github.com/simontelephonics/transcribe-with-azure
  *
+ * DEPLOY PATH (if not using setup_transcriber.sh):
+ *   sudo cp send_voicemail_email.php /usr/local/bin/send_voicemail_email.php
+ *   sudo sed -i 's/\r//' /usr/local/bin/send_voicemail_email.php
+ *   sudo chmod +x /usr/local/bin/send_voicemail_email.php
+ *   sudo systemctl restart transcriber
+ *
  * Usage:
  *   php send_voicemail_email.php \
  *     --to=user@example.com \

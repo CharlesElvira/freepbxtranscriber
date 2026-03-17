@@ -99,6 +99,33 @@ systemctl restart transcriber
 
 ---
 
+## Manual Deploy (Without Re-running Setup)
+
+If you update a script in the repo and want to deploy it without re-running the full setup:
+
+### Update `transcribe_watcher.sh`
+
+```bash
+sudo cp /opt/freepbxtranscriber/transcribe_watcher.sh /var/transcripts/transcribe_watcher.sh
+sudo sed -i 's/\r//' /var/transcripts/transcribe_watcher.sh
+sudo sed -i 's/FALLBACK_EMAIL_PLACEHOLDER/your@email.com/' /var/transcripts/transcribe_watcher.sh
+sudo chmod +x /var/transcripts/transcribe_watcher.sh
+sudo systemctl restart transcriber
+```
+
+### Update `send_voicemail_email.php`
+
+```bash
+sudo cp /opt/freepbxtranscriber/send_voicemail_email.php /usr/local/bin/send_voicemail_email.php
+sudo sed -i 's/\r//' /usr/local/bin/send_voicemail_email.php
+sudo chmod +x /usr/local/bin/send_voicemail_email.php
+sudo systemctl restart transcriber
+```
+
+> Replace `your@email.com` with your actual fallback email address.
+
+---
+
 ## Troubleshooting
 
 **`$'\r': command not found`**
