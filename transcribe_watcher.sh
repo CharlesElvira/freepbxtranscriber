@@ -75,7 +75,7 @@ inotifywait -m -r "$VOICEMAIL_DIR" -e close_write -e moved_to --format '%w%f' \
 
     # --- Look up recipient email from voicemail.conf ---
     # Format:  207 => password,Full Name,email@example.com,...
-    TO_EMAIL=$(grep -m1 "^${EXTENSION}[[:space:]]*=>" "$VOICEMAIL_CONF" 2>/dev/null \
+    TO_EMAIL=$(grep -m1 "^${EXTENSION}=" "$VOICEMAIL_CONF" 2>/dev/null \
                | cut -d',' -f3 \
                | tr -d '[:space:]')
 
