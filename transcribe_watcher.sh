@@ -44,8 +44,7 @@ fi
 echo "[$(date)] Monitoring $VOICEMAIL_DIR for new voicemail WAV files..."
 
 inotifywait -m -r "$VOICEMAIL_DIR" -e close_write -e moved_to --format '%w%f' \
-  | grep --line-buffered '/msg[0-9]\+\.wav$' \
-  | grep --line-buffered -v '/tmp/' \
+  | grep --line-buffered '/INBOX/msg[0-9]\+\.wav$' \
   | while read -r WAV_FILE; do
 
     echo "[$(date)] New WAV file detected: $WAV_FILE"
@@ -107,20 +106,24 @@ inotifywait -m -r "$VOICEMAIL_DIR" -e close_write -e moved_to --format '%w%f' \
     echo "[$(date)] Transcribing for ext $EXTENSION (to: $TO_EMAIL) caller: $CALLER_ID"
 
     # --- Run Whisper transcription ---
-    TEMP_WHISPER_LOG="/tmp/whisper_${FILENAME}.log"
-    TRANSCRIPT_TXT="$TRANSCRIPT_DIR/${FILENAME}.txt"
+    # Use a per-job temp dir so concurrent/back-to-back voicemails don't collide
+    WHISPER_TMP_DIR=$(mktemp -d)
+    TEMP_WHISPER_LOG="/tmp/whisper_${EXTENSION}_${FILENAME}.log"
+    TRANSCRIPT_TXT="$TRANSCRIPT_DIR/${EXTENSION}_${FILENAME}.txt"
 
     if "$WHISPER_BIN" "$WAV_FILE" \
         --model base \
         --language en \
-        --output_dir "$TRANSCRIPT_DIR" \
+        --output_dir "$WHISPER_TMP_DIR" \
         --output_format txt \
         --verbose False > "$TEMP_WHISPER_LOG" 2>&1; then
 
-        if [ -f "$TRANSCRIPT_TXT" ]; then
+        WHISPER_OUT="$WHISPER_TMP_DIR/${FILENAME}.txt"
+        if [ -f "$WHISPER_OUT" ]; then
+            mv "$WHISPER_OUT" "$TRANSCRIPT_TXT"
             echo "[$(date)] Transcription succeeded: $TRANSCRIPT_TXT"
         else
-            echo "[$(date)] WARNING: Whisper ran but transcript not found at $TRANSCRIPT_TXT"
+            echo "[$(date)] WARNING: Whisper ran but transcript not found at $WHISPER_OUT"
             echo "Transcription file not produced by Whisper." > "$TRANSCRIPT_TXT"
         fi
     else
@@ -130,8 +133,15 @@ inotifywait -m -r "$VOICEMAIL_DIR" -e close_write -e moved_to --format '%w%f' \
 
     cat "$TEMP_WHISPER_LOG" >> "$LOG_FILE" 2>/dev/null
     rm -f "$TEMP_WHISPER_LOG"
+    rm -rf "$WHISPER_TMP_DIR"
 
     # --- Send email via PHP mailer ---
+    if [ -f "$TRANSCRIPT_TXT" ]; then
+        echo "[$(date)] Transcript file ready: $TRANSCRIPT_TXT ($(wc -c < "$TRANSCRIPT_TXT") bytes)"
+    else
+        echo "[$(date)] ERROR: Transcript file missing before email send: $TRANSCRIPT_TXT"
+    fi
+
     php "$PHP_MAILER" \
         --to="$TO_EMAIL" \
         --extension="$EXTENSION" \
