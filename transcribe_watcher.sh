@@ -36,7 +36,7 @@ fi
 
 echo "[$(date)] Monitoring $VOICEMAIL_DIR for new voicemail WAV files..."
 
-inotifywait -m -r "$VOICEMAIL_DIR" -e close_write --format '%w%f' \
+inotifywait -m -r "$VOICEMAIL_DIR" -e close_write -e moved_to --format '%w%f' \
   | grep --line-buffered '\.wav$' \
   | while read -r WAV_FILE; do
 
