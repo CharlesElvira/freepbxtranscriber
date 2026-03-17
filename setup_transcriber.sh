@@ -221,6 +221,7 @@ if [ ! -f "$REPO_DIR/transcribe_watcher.sh" ]; then
     exit 1
 fi
 cp "$REPO_DIR/transcribe_watcher.sh" "$SCRIPT_PATH" || { echo "Error: Failed to copy transcribe_watcher.sh. Check $LOG_FILE for details."; exit 1; }
+sed -i 's/\r//' "$SCRIPT_PATH"
 sed -i "s/FALLBACK_EMAIL_PLACEHOLDER/${FALLBACK_EMAIL}/" "$SCRIPT_PATH"
 chmod +x "$SCRIPT_PATH"
 echo "transcribe_watcher.sh deployed to $SCRIPT_PATH."
@@ -232,6 +233,7 @@ if [ ! -f "$REPO_DIR/send_voicemail_email.php" ]; then
     exit 1
 fi
 cp "$REPO_DIR/send_voicemail_email.php" "$PHP_MAILER_PATH" || { echo "Error: Failed to copy send_voicemail_email.php. Check $LOG_FILE for details."; exit 1; }
+sed -i 's/\r//' "$PHP_MAILER_PATH"
 chmod +x "$PHP_MAILER_PATH"
 echo "send_voicemail_email.php deployed to $PHP_MAILER_PATH."
 
