@@ -37,23 +37,36 @@ fi
 echo "[$(date)] Monitoring $VOICEMAIL_DIR for new voicemail WAV files..."
 
 inotifywait -m -r "$VOICEMAIL_DIR" -e close_write -e moved_to --format '%w%f' \
-  | grep --line-buffered '\.wav$' \
+  | grep --line-buffered '/msg[0-9]\+\.wav$' \
+  | grep --line-buffered -v '/tmp/' \
   | while read -r WAV_FILE; do
 
     echo "[$(date)] New WAV file detected: $WAV_FILE"
 
+    # Wait for the file size to stabilize (Asterisk may still be writing)
+    PREV_SIZE=-1
+    STABLE_CHECKS=0
+    for i in $(seq 1 20); do
+        FILE_SIZE_KB=$(du -k "$WAV_FILE" 2>/dev/null | awk '{print $1}')
+        FILE_SIZE_KB=${FILE_SIZE_KB:-0}
+        if (( FILE_SIZE_KB == PREV_SIZE )); then
+            (( STABLE_CHECKS++ ))
+            (( STABLE_CHECKS >= 3 )) && break
+        else
+            STABLE_CHECKS=0
+        fi
+        PREV_SIZE=$FILE_SIZE_KB
+        sleep 1
+    done
+
     # Skip very small files (silence, corrupt recordings)
-    FILE_SIZE_KB=$(du -k "$WAV_FILE" 2>/dev/null | awk '{print $1}')
-    if [ -z "$FILE_SIZE_KB" ] || (( FILE_SIZE_KB < MIN_FILE_SIZE_KB )); then
+    if (( FILE_SIZE_KB < MIN_FILE_SIZE_KB )); then
         echo "[$(date)] Skipping small file (${FILE_SIZE_KB}KB < ${MIN_FILE_SIZE_KB}KB): $WAV_FILE"
         continue
     fi
 
     FILENAME=$(basename "$WAV_FILE" .wav)
     TXT_FILE="${WAV_FILE%.wav}.txt"
-
-    # Wait briefly to ensure the companion .txt has been written by Asterisk
-    sleep 2
 
     # --- Parse voicemail metadata ---
     CALLER_ID="Unknown"
