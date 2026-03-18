@@ -91,13 +91,25 @@ if ($wav_file && is_readable($wav_file)) {
 
 $mime .= "--{$boundary}--\r\n";
 
-// Send via PHP mail() which routes through FreePBX's configured Postfix
+// Send via Postfix sendmail (same path FreePBX uses internally)
 $headers  = "From: {$from}\r\n";
+$headers .= "To: {$to}\r\n";
 $headers .= "MIME-Version: 1.0\r\n";
 $headers .= "Content-Type: multipart/mixed; boundary=\"{$boundary}\"\r\n";
 
-if (!mail($to, $subject, $mime, $headers)) {
-    fwrite(STDERR, "ERROR: mail() failed for {$to}.\n");
+$full_message = $headers . "\r\n" . $mime;
+
+$sendmail_cmd = '/usr/sbin/sendmail -t -i 2>&1';
+$sendmail = popen($sendmail_cmd, 'w');
+if ($sendmail === false) {
+    fwrite(STDERR, "ERROR: Could not open sendmail pipe.\n");
+    exit(1);
+}
+fwrite($sendmail, $full_message);
+$ret = pclose($sendmail);
+
+if ($ret !== 0) {
+    fwrite(STDERR, "ERROR: sendmail exited with code {$ret}. Check: journalctl -u postfix or /var/log/maillog\n");
     exit(1);
 }
 
