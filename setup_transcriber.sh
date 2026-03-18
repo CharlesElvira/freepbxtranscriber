@@ -193,20 +193,22 @@ pip install git+https://github.com/openai/whisper.git || { echo "Error: Failed t
 deactivate # Deactivate the virtual environment
 echo "Whisper and its dependencies installed successfully."
 
+fi # end of deploy-only skip block
+
 # === SERVICE SETUP ===
 echo "--- Setting up Systemd Service for Transcriber ---"
 
 # Enable debugging for this section to trace variable issues
 set -x
 
-# Define service-specific variables here, closer to their usage
+# Define service-specific variables
 SERVICE_NAME="transcriber"
-INSTALL_DIR="/var/transcripts" # Directory for output transcripts and watcher script
-SCRIPT_PATH="$INSTALL_DIR/transcribe_watcher.sh" # Watcher script path
-PHP_MAILER_PATH="/usr/local/bin/send_voicemail_email.php" # PHP email sender
-PYTHON_BIN="$WHISPER_ENV/bin/python3" # Python executable within the virtual environment
-WHISPER_BIN="$WHISPER_ENV/bin/whisper" # Whisper executable within the virtual environment
-MONITOR_DIR="/var/spool/asterisk/voicemail/default" # FreePBX voicemail directory
+INSTALL_DIR="/var/transcripts"
+SCRIPT_PATH="$INSTALL_DIR/transcribe_watcher.sh"
+PHP_MAILER_PATH="/usr/local/bin/send_voicemail_email.php"
+PYTHON_BIN="$WHISPER_ENV/bin/python3"
+WHISPER_BIN="$WHISPER_ENV/bin/whisper"
+MONITOR_DIR="/var/spool/asterisk/voicemail/default"
 
 # Email fallback: used if extension has no email configured in voicemail.conf
 FALLBACK_EMAIL="admin@yourdomain.com"
@@ -214,19 +216,19 @@ FALLBACK_EMAIL="admin@yourdomain.com"
 # Ensure transcript directory exists
 mkdir -p "$INSTALL_DIR" || { echo "Error: Failed to create install directory $INSTALL_DIR. Check $LOG_FILE for details."; exit 1; }
 
-# Verify Python executable path for the service
-if ! [ -x "$PYTHON_BIN" ]; then
-    echo "Error: Python executable not found or not executable at $PYTHON_BIN. Check $LOG_FILE for details."
-    exit 1
-fi
+if [ "$DEPLOY_ONLY" = false ]; then
+    # Verify Python executable path for the service
+    if ! [ -x "$PYTHON_BIN" ]; then
+        echo "Error: Python executable not found or not executable at $PYTHON_BIN. Check $LOG_FILE for details."
+        exit 1
+    fi
 
-# Verify Whisper executable path for the service
-if ! [ -x "$WHISPER_BIN" ]; then
-    echo "Error: Whisper executable not found or not executable at $WHISPER_BIN. Check $LOG_FILE for details."
-    exit 1
+    # Verify Whisper executable path for the service
+    if ! [ -x "$WHISPER_BIN" ]; then
+        echo "Error: Whisper executable not found or not executable at $WHISPER_BIN. Check $LOG_FILE for details."
+        exit 1
+    fi
 fi
-
-fi # end of deploy-only skip block
 
 # --- Deploy scripts from repo ---
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
