@@ -53,7 +53,7 @@ if ($transcript_file && is_readable($transcript_file)) {
 $duration_fmt = sprintf('%d:%02d', intdiv($duration_secs, 60), $duration_secs % 60);
 
 $hostname = gethostname();
-$from     = "FreePBX Voicemail <voicemail@{$hostname}>";
+$from     = "FreePBX Voicemail <asterisk@{$hostname}>";
 $subject  = "New Voicemail for Ext {$extension} from {$callerid}";
 
 $boundary = 'VMBOUND_' . md5(uniqid('', true));
