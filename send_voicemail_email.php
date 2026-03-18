@@ -99,7 +99,7 @@ $headers .= "Content-Type: multipart/mixed; boundary=\"{$boundary}\"\r\n";
 
 $full_message = $headers . "\r\n" . $mime;
 
-$sendmail_cmd = '/usr/sbin/sendmail -t -i 2>&1';
+$sendmail_cmd = "/usr/sbin/sendmail -t -i -f asterisk@{$hostname} 2>&1";
 $sendmail = popen($sendmail_cmd, 'w');
 if ($sendmail === false) {
     fwrite(STDERR, "ERROR: Could not open sendmail pipe.\n");
