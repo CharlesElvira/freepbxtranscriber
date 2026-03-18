@@ -1,6 +1,17 @@
 #!/bin/bash
 set -euo pipefail
 
+# === OPTIONS ===
+# Usage: bash setup_transcriber.sh [--deploy-only]
+#   --deploy-only  Copy scripts and restart service only. Skips Python/Whisper install.
+DEPLOY_ONLY=false
+for arg in "$@"; do
+    case "$arg" in
+        --deploy-only) DEPLOY_ONLY=true ;;
+        *) echo "Unknown option: $arg"; exit 1 ;;
+    esac
+done
+
 # === CONFIGURATION ===
 PYTHON_VERSION="3.10.14"
 OPENSSL_VERSION="1.1.1l" # Correctly defined here
@@ -29,6 +40,10 @@ check_python_functional() {
     return 1 # Not functional or not found
 }
 
+
+if [ "$DEPLOY_ONLY" = true ]; then
+    echo "--- Deploy-only mode: skipping Python/Whisper installation ---"
+else
 
 # === PREREQUISITES AND DEPENDENCY INSTALLATION ===
 echo "Checking for Python $PYTHON_VERSION installation..."
@@ -210,6 +225,8 @@ if ! [ -x "$WHISPER_BIN" ]; then
     echo "Error: Whisper executable not found or not executable at $WHISPER_BIN. Check $LOG_FILE for details."
     exit 1
 fi
+
+fi # end of deploy-only skip block
 
 # --- Deploy scripts from repo ---
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

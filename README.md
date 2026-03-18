@@ -99,6 +99,18 @@ systemctl restart transcriber
 
 ---
 
+## Updating Scripts Without Re-running Setup
+
+If you only updated `transcribe_watcher.sh` or `send_voicemail_email.php` and want to redeploy without recompiling Python or Whisper, use the `--deploy-only` flag:
+
+```bash
+bash setup_transcriber.sh --deploy-only
+```
+
+This copies both scripts to their install locations, fixes line endings, sets the fallback email, and restarts the service — skipping all compilation steps.
+
+---
+
 ## Manual Deploy (Without Re-running Setup)
 
 If you update a script in the repo and want to deploy it without re-running the full setup:
